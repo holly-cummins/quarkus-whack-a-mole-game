@@ -2,9 +2,13 @@ package org.acme.mole;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import io.quarkiverse.desktop.swt.SwtStartupEvent;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -23,15 +27,16 @@ import org.eclipse.swt.widgets.Shell;
  * Geometry arrives as system properties (e.g. {@code -Dmole.x=100}) so the
  * window can paint immediately, without waiting for any network round trip.
  * <p>
- * The window shows its PID in the title bar and, as its contents, how long it took from being
- * launched to its first paint.
+ * The window shows its PID in the title bar. Its contents show two startup times: how long Quarkus took to
+ * start, as in its "started in" log line, and how long it took from being launched to the window's first paint.
  */
 @Singleton
 public class MoleWindow {
 
     private static final Color MOLE_BROWN = new Color(0x8B, 0x5A, 0x2B);
     private static final Color TEXT = new Color(0xFF, 0xF4, 0xE0);
-    private static final String CAPTION = "started in";
+    private static final String QUARKUS_CAPTION = "Quarkus started in";
+    private static final String PAINT_CAPTION = "window painted in";
 
     @ConfigProperty(name = "mole.id", defaultValue = "0")
     int id;
@@ -60,9 +65,14 @@ public class MoleWindow {
     Optional<Long> spawnedAtMicros;
 
     private Shell shell;
-    private String startupTime;
+    private OptionalDouble quarkusMillis = OptionalDouble.empty();
+    private List<String[]> lines;
     private Font timeFont;
     private Font captionFont;
+
+    void started(@Observes StartupEvent event) {
+        quarkusMillis = QuarkusStartup.millisSinceBoot();
+    }
 
     void open(@Observes SwtStartupEvent event) {
         MacOs.hideFromDock();
@@ -88,28 +98,46 @@ public class MoleWindow {
     }
 
     private void paint(PaintEvent event) {
-        if (startupTime == null) {
+        if (lines == null) {
             // Measure first, so the time doesn't include the font sizing below
-            startupTime = String.format("%.1f ms", millisSinceLaunch());
+            String paintTime = formatMillis(millisSinceLaunch());
+            lines = new ArrayList<>();
+            quarkusMillis.ifPresent(millis -> lines.add(new String[] { QUARKUS_CAPTION, formatMillis(millis) }));
+            lines.add(new String[] { PAINT_CAPTION, paintTime });
         }
         Rectangle area = shell.getClientArea();
         GC gc = event.gc;
         if (timeFont == null) {
-            timeFont = fitFont(gc, startupTime, area.width * 8 / 10, area.height / 2);
-            captionFont = fitFont(gc, CAPTION, area.width * 6 / 10, area.height / 6);
+            // Each line is a caption above a time; give the times most of the height
+            int lineHeight = area.height / lines.size();
+            String widestTime = lines.stream().map(line -> line[1]).reduce((a, b) -> a.length() >= b.length() ? a : b).get();
+            timeFont = fitFont(gc, widestTime, area.width * 8 / 10, lineHeight * 6 / 10);
+            captionFont = fitFont(gc, QUARKUS_CAPTION, area.width * 8 / 10, lineHeight * 3 / 10);
         }
         gc.setForeground(TEXT);
 
         gc.setFont(captionFont);
-        Point caption = gc.textExtent(CAPTION);
+        int captionHeight = gc.getFontMetrics().getHeight();
         gc.setFont(timeFont);
-        Point time = gc.textExtent(startupTime);
+        int timeHeight = gc.getFontMetrics().getHeight();
 
-        int top = area.y + (area.height - caption.y - time.y) / 2;
-        gc.setFont(captionFont);
-        gc.drawText(CAPTION, area.x + (area.width - caption.x) / 2, top, true);
-        gc.setFont(timeFont);
-        gc.drawText(startupTime, area.x + (area.width - time.x) / 2, top + caption.y, true);
+        int y = area.y + (area.height - lines.size() * (captionHeight + timeHeight)) / 2;
+        for (String[] line : lines) {
+            y = drawCentred(gc, line[0], captionFont, area, y);
+            y = drawCentred(gc, line[1], timeFont, area, y);
+        }
+    }
+
+    /** Draws the text horizontally centred at the given height, and returns the height below it. */
+    private static int drawCentred(GC gc, String text, Font font, Rectangle area, int y) {
+        gc.setFont(font);
+        Point extent = gc.textExtent(text);
+        gc.drawText(text, area.x + (area.width - extent.x) / 2, y, true);
+        return y + extent.y;
+    }
+
+    private static String formatMillis(double millis) {
+        return String.format("%.1f ms", millis);
     }
 
     private double millisSinceLaunch() {
