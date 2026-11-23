@@ -46,8 +46,9 @@ public class LaunchCommand implements Runnable {
             return;
         }
 
-        List<Process> moles = new ArrayList<>();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> moles.forEach(Process::destroy)));
+        List<CompletableFuture<Void>> moles = new ArrayList<>();
+        MoleLauncher.ignoreProcessCleanupDuringShutdown();
+        Runtime.getRuntime().addShutdownHook(new Thread(launcher::stopAll));
 
         long start = System.nanoTime();
         for (Tile tile : tiles) {
@@ -60,7 +61,7 @@ public class LaunchCommand implements Runnable {
         System.out.printf("Spawned %d %s moles in %.1f ms%n", moles.size(), launcher.mode(),
                 (System.nanoTime() - start) / 1e6);
 
-        CompletableFuture.allOf(moles.stream().map(Process::onExit).toArray(CompletableFuture[]::new)).join();
+        CompletableFuture.allOf(moles.toArray(CompletableFuture[]::new)).join();
         System.out.println("All moles closed.");
     }
 }
