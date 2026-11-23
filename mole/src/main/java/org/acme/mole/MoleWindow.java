@@ -57,6 +57,14 @@ public class MoleWindow {
     @ConfigProperty(name = "mole.role", defaultValue = "MOLE")
     Role role;
 
+    /**
+     * On macOS, keep JVM moles out of the Dock too, by hiding them again once SWT has launched. Their icons still
+     * flash up as each mole starts. Off by default: a Dock full of JVM moles shows that each is its own process.
+     * Native moles never get an icon either way.
+     */
+    @ConfigProperty(name = "mole.macos.hide-dock-icon-after-launch", defaultValue = "false")
+    boolean hideDockIconAfterLaunch;
+
     /** The score, for the game-over screen. */
     @ConfigProperty(name = "mole.message", defaultValue = " ")
     String message;
@@ -116,6 +124,9 @@ public class MoleWindow {
 
     void open(@Observes SwtStartupEvent event) {
         MacOs.hideFromDock();
+        if (hideDockIconAfterLaunch) {
+            MacOs.hideFromDockOnceLaunched(event.display());
+        }
         if (role == Role.GAME_OVER) {
             GameOverWindow.open(event.display(), new Rectangle(x, y, width, height), message.strip(), gameOverOpacity);
             return;

@@ -70,6 +70,8 @@ If a native mole has been built, it's used automatically. Use `--mode JVM` or `-
 
 Stopping the controller (Ctrl-C) closes every mole it started. A mole that exits with an error within a second of launch isn't replaced, so a broken build doesn't relaunch forever.
 
+JVM moles on macOS each get a Dock icon, because the `java` launcher isn't an app bundle; native moles don't. Set `MOLE_MACOS_HIDE_DOCK_ICON_AFTER_LAUNCH=true` before starting the controller to hide JVM moles' icons once they've started; each one still flashes up briefly.
+
 Notes:
 - SWT is not compatible with dev mode on Mac.
 - On macOS, JVM moles are started with `-XstartOnFirstThread`; the controller adds this for you.

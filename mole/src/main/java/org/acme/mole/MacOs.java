@@ -1,6 +1,7 @@
 package org.acme.mole;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import org.eclipse.swt.widgets.Display;
 import org.jboss.logging.Logger;
 
 /**
@@ -9,7 +10,9 @@ import org.jboss.logging.Logger;
  * SWT turns any app without a bundle into a regular Dock app when its Display starts, so every mole would get
  * its own Dock icon. Native macOS builds avoid that with an Info.plist embedded in the executable (see the
  * {@code macos} profile in the mole's pom). JVM moles run inside the {@code java} launcher and can't, so they
- * get a Dock icon briefly until {@link #hideFromDock()} switches them to an accessory app.
+ * get a Dock icon. {@link #hideFromDock()} switches a mole to an accessory app, but SWT switches a JVM mole back
+ * once the event loop starts, when macOS tells it the app has finished launching; {@link #hideFromDockOnceLaunched}
+ * switches it again after that, so the icon only flashes up briefly.
  * <p>
  * SWT's Cocoa bindings exist only in the macOS SWT jar, so they are reached through reflection.
  */
@@ -26,6 +29,21 @@ final class MacOs {
 
     static boolean isMac() {
         return System.getProperty("os.name", "").toLowerCase().contains("mac");
+    }
+
+    /**
+     * Hides the mole from the Dock again once SWT has finished launching. macOS reports that from inside the event
+     * loop, and SWT doesn't say exactly when, so this re-applies the policy over the loop's first few turns: setting
+     * it again is harmless. Must run on the UI thread. Does nothing on other platforms.
+     */
+    static void hideFromDockOnceLaunched(Display display) {
+        if (!isMac()) {
+            return;
+        }
+        display.asyncExec(MacOs::hideFromDock);
+        for (int delayMillis : new int[] { 50, 200, 500 }) {
+            display.timerExec(delayMillis, MacOs::hideFromDock);
+        }
     }
 
     /** Must run on the UI thread, after the SWT Display exists. Does nothing on other platforms. */
