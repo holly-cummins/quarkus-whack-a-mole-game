@@ -13,8 +13,13 @@ The repo has two Quarkus applications:
 
 ```
 ./mvnw package                 # JVM build of both
-./mvnw package -Dnative -pl mole   # native mole (the controller can stay on the JVM)
+./mvnw package -Dnative        # native build of both
+./mvnw package -Dnative -pl mole   # native mole only (the controller can stay on the JVM)
 ```
+
+Native builds need [Mandrel](https://github.com/graalvm/mandrel/releases) or GraalVM for JDK 25.0.4 or newer, with `GRAALVM_HOME` pointing at it. CI uses Mandrel 25.0.5.
+
+`scripts/smoke-test.sh` checks a native build end to end: the native controller launches a grid of native moles, every window must appear, and stopping the controller must close them. It needs an X display and `xwininfo`; on a headless Linux box, run it as `xvfb-run scripts/smoke-test.sh`.
 
 ## Run
 

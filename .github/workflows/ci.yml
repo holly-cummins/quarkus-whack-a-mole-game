@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # SWT ships platform-specific native libraries, so build on each desktop OS we demo on
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B verify
+
+  native:
+    name: Native build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            mandrel: linux-amd64
+            home: ""
+          - os: macos-latest
+            mandrel: macos-aarch64
+            home: /Contents/Home
+    runs-on: ${{ matrix.os }}
+    env:
+      # Quarkus 4.0.0.CR1 needs GraalVM/Mandrel for JDK 25.0.4 or newer
+      MANDREL_VERSION: 25.0.5.0-Final
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Mandrel
+        run: |
+          curl -sSfL "https://github.com/graalvm/mandrel/releases/download/mandrel-${MANDREL_VERSION}/mandrel-java25-${{ matrix.mandrel }}-${MANDREL_VERSION}.tar.gz" \
+            | tar xz -C "$RUNNER_TEMP"
+          home="$RUNNER_TEMP/mandrel-java25-${MANDREL_VERSION}${{ matrix.home }}"
+          echo "GRAALVM_HOME=$home" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=$home" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-
+
+      - name: Build native executables
+        run: ./mvnw -B verify -Dnative
+
+      - name: Install a virtual display
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb x11-utils libgtk-3-0t64
+
+      # macOS runners have no reliable window server to test against, so the macOS job only builds
+      - name: Smoke test
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum scripts/smoke-test.sh

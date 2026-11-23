@@ -31,7 +31,7 @@ public class MoleLauncher {
         if (mode == Mode.NATIVE) {
             command.add(NATIVE_EXECUTABLE.toString());
         } else {
-            command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+            command.add(javaExecutable());
             if (isMac()) {
                 // SWT must own the main thread on macOS
                 command.add("-XstartOnFirstThread");
@@ -59,6 +59,12 @@ public class MoleLauncher {
             return requested;
         }
         return Files.isExecutable(NATIVE_EXECUTABLE) ? Mode.NATIVE : Mode.JVM;
+    }
+
+    /** Use the controller's own JVM if it has one; a native controller has no java.home, so fall back to the PATH. */
+    private static String javaExecutable() {
+        String javaHome = System.getProperty("java.home");
+        return javaHome == null ? "java" : Path.of(javaHome, "bin", "java").toString();
     }
 
     private static boolean isMac() {
