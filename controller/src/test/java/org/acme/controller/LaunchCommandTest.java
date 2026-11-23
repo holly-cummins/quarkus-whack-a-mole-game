@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class LaunchCommandTest {
 
     @Test
-    @Launch({ "launch", "--dry-run", "--mode", "NATIVE", "--columns", "2", "--rows", "2",
+    @Launch({ "launch", "--dry-run", "--mode", "NATIVE", "4",
             "--screen-width", "400", "--screen-height", "300", "--gap", "0" })
     void dryRunPrintsOneCommandPerTile(LaunchResult result) {
         var lines = result.getOutputStream().stream().filter(line -> line.contains("-Dmole.id=")).toList();

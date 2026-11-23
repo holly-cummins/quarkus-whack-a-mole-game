@@ -5,18 +5,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-cols=3
-rows=2
-expected=$((cols * rows))
+expected=6
 
 controller/target/controller-1.0.0-SNAPSHOT-runner launch --mode NATIVE \
-    --columns "$cols" --rows "$rows" --screen-width 1280 --screen-height 720 &
+    --screen-width 1280 --screen-height 720 "$expected" &
 controller=$!
 trap 'kill "$controller" 2>/dev/null || true' EXIT
 
 count=0
 for _ in $(seq 1 50); do
-    count=$(xwininfo -root -tree | grep -c '"Mole [0-9]' || true)
+    count=$(xwininfo -root -tree | grep -c '"PID [0-9]' || true)
     [ "$count" -ge "$expected" ] && break
     sleep 0.2
 done

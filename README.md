@@ -26,8 +26,10 @@ Native builds need [Mandrel](https://github.com/graalvm/mandrel/releases) or Gra
 Run from the repository root, because the controller finds the mole under `mole/target/`:
 
 ```
-java -jar controller/target/quarkus-app/quarkus-run.jar launch --columns 4 --rows 3 --screen-width 1920 --screen-height 1080
+java -jar controller/target/quarkus-app/quarkus-run.jar launch 12 --screen-width 1920 --screen-height 1080
 ```
+
+The number is how many moles to launch; the controller works out the rows and columns. By default each tile has the screen's aspect ratio. Add `--square` for square tiles, as the video needs. When the count doesn't fill the grid, the spare slots stay empty.
 
 If a native mole has been built, it's used automatically. Use `--mode JVM` or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
 

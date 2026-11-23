@@ -80,7 +80,7 @@ public class MoleWindow {
         // NO_FOCUS: a new mole doesn't steal keyboard focus from whatever the user is doing.
         int style = SWT.ON_TOP | SWT.NO_FOCUS | (borderless ? SWT.NO_TRIM : SWT.SHELL_TRIM);
         shell = new Shell(event.display(), style);
-        shell.setText("Mole " + id + " (PID " + ProcessHandle.current().pid() + ")");
+        shell.setText("PID " + ProcessHandle.current().pid());
         shell.setBackground(MOLE_BROWN);
         shell.setBounds(x, y, width, height);
         shell.addPaintListener(this::paint);

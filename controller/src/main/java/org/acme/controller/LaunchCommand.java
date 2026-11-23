@@ -6,16 +6,18 @@ import java.util.concurrent.CompletableFuture;
 
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 @Command(name = "launch", mixinStandardHelpOptions = true,
         description = "Tile the screen with a grid of moles and wait until they are all closed.")
 public class LaunchCommand implements Runnable {
 
-    @Option(names = "--columns", defaultValue = "4", description = "Number of columns (default: ${DEFAULT-VALUE})")
-    int columns;
+    @Parameters(paramLabel = "COUNT", description = "How many moles to launch. The rows and columns are worked out to fit.")
+    int count;
 
-    @Option(names = "--rows", defaultValue = "3", description = "Number of rows (default: ${DEFAULT-VALUE})")
-    int rows;
+    @Option(names = "--square", description = "Make the tiles square, as the video needs. "
+            + "By default tiles take the screen's aspect ratio.")
+    boolean square;
 
     @Option(names = "--gap", defaultValue = "20", description = "Pixels between tiles (default: ${DEFAULT-VALUE})")
     int gap;
@@ -38,7 +40,9 @@ public class LaunchCommand implements Runnable {
 
     @Override
     public void run() {
-        List<Tile> tiles = new Grid(screenWidth, screenHeight, columns, rows, gap).tiles();
+        double aspectRatio = square ? 1.0 : (double) screenWidth / screenHeight;
+        Grid grid = Grid.fit(count, screenWidth, screenHeight, aspectRatio, gap);
+        List<Tile> tiles = grid.tiles().subList(0, count);
         MoleLauncher launcher = new MoleLauncher(mode, borderless);
 
         if (dryRun) {
@@ -57,8 +61,8 @@ public class LaunchCommand implements Runnable {
                 System.err.println("Could not launch mole " + tile.id() + ": " + e.getMessage());
             }
         }
-        System.out.printf("Spawned %d %s moles in %.1f ms%n", moles.size(), launcher.mode(),
-                (System.nanoTime() - start) / 1e6);
+        System.out.printf("Spawned %d %s moles in %.1f ms, on a %dx%d grid of %dx%d tiles%n", moles.size(), launcher.mode(),
+                (System.nanoTime() - start) / 1e6, grid.columns(), grid.rows(), grid.tileWidth(), grid.tileHeight());
 
         CompletableFuture.allOf(moles.stream().map(Process::onExit).toArray(CompletableFuture[]::new)).join();
         System.out.println("All moles closed.");
