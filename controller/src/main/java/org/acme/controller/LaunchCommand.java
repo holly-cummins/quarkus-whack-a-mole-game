@@ -111,7 +111,7 @@ public class LaunchCommand implements Runnable {
     private void gameOver(Fleet fleet) {
         String score = String.format("You whacked %d moles in %.1f seconds", fleet.whacked(),
                 (System.nanoTime() - startedNanos) / 1e9);
-        System.out.println("Game over! " + score);
+        System.out.println("Game over! " + score + ". Press Ctrl-C to finish.");
         fleet.gameOver(new Tile(-1, 0, 0, screenWidth, screenHeight), score);
     }
 }

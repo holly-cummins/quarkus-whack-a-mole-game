@@ -65,7 +65,10 @@ public class Fleet {
         return whacked;
     }
 
-    /** Shows the game-over screen; once the player closes it, the fleet stops. */
+    /**
+     * Shows the game-over screen. The player can't close it, so it stays up until the fleet is stopped; if it goes
+     * anyway, the fleet stops too.
+     */
     public synchronized void gameOver(Tile screen, String score) {
         if (stopped) {
             return;

@@ -101,7 +101,8 @@
                 </property>
             </activation>
             <properties>
-                <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
+                <!-- Build the JVM jar too, so a native build never leaves a stale one behind for JVM mode -->
+                <quarkus.package.jar.enabled>true</quarkus.package.jar.enabled>
                 <skipITs>false</skipITs>
                 <quarkus.native.enabled>true</quarkus.native.enabled>
             </properties>

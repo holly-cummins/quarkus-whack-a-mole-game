@@ -43,7 +43,7 @@ Start the controller with the `apocalypse` profile:
 java -Dquarkus.profile=apocalypse -jar controller/target/quarkus-app/quarkus-run.jar launch
 ```
 
-(or set `QUARKUS_PROFILE=apocalypse`; for a native controller, put `-Dquarkus.profile=apocalypse` before `launch`). A row of moles appears along the bottom of the screen, and new ones keep coming, filling the lowest gaps first so the moles rise up the screen. Every mole is a target: click them to close them. There's no timer: each new mole is launched as soon as the one before it has painted its window, so the moles come as fast as they can start. When the screen is full, it's game over, with your score; click the GAME OVER screen to finish.
+(or set `QUARKUS_PROFILE=apocalypse`; for a native controller, put `-Dquarkus.profile=apocalypse` before `launch`). A row of moles appears along the bottom of the screen, and new ones keep coming, filling the lowest gaps first so the moles rise up the screen. Every mole is a target: click them to close them. There's no timer: each new mole is launched as soon as the one before it has painted its window, so the moles come as fast as they can start. When the screen is full, it's game over, with your score. The GAME OVER screen ignores clicks, so frantic clicking doesn't hide your score; press Ctrl-C in the controller's terminal to finish. Its background is very transparent, so the moles show through; set `MOLE_GAME_OVER_BACKGROUND_OPACITY` (a percentage, default 20) to change that. On Linux, the transparency needs a compositing window manager.
 
 Native moles start so fast that the screen fills in about a second and a half. With `--mode JVM` you get several seconds and a fighting chance.
 

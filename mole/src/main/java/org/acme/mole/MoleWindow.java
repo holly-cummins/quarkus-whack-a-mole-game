@@ -61,6 +61,10 @@ public class MoleWindow {
     @ConfigProperty(name = "mole.message", defaultValue = " ")
     String message;
 
+    /** How opaque the game-over screen's background is, as a percentage; low, so the moles show through. */
+    @ConfigProperty(name = "mole.game-over.background-opacity", defaultValue = "20")
+    int gameOverOpacity;
+
     @ConfigProperty(name = "mole.id", defaultValue = "0")
     int id;
 
@@ -113,7 +117,7 @@ public class MoleWindow {
     void open(@Observes SwtStartupEvent event) {
         MacOs.hideFromDock();
         if (role == Role.GAME_OVER) {
-            GameOverWindow.open(event.display(), new Rectangle(x, y, width, height), message.strip());
+            GameOverWindow.open(event.display(), new Rectangle(x, y, width, height), message.strip(), gameOverOpacity);
             return;
         }
         // ON_TOP: float above other apps' windows, and take a click even when this mole isn't the active app.

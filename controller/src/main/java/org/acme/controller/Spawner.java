@@ -48,7 +48,9 @@ public class Spawner {
             } catch (InterruptedException e) {
                 return;
             } catch (TimeoutException e) {
-                System.err.println("A new mole didn't paint within " + READY_TIMEOUT_SECONDS + " s; launching the next anyway");
+                System.err.println("A new mole didn't say it was ready within " + READY_TIMEOUT_SECONDS
+                        + " s; launching the next anyway. If this keeps happening, the mole build may be out of date: "
+                        + "rebuild it with ./mvnw package -pl mole (add -Dnative for native moles)");
             } catch (ExecutionException e) {
                 System.err.println("Stopped adding moles: " + e.getCause().getMessage());
                 return;
