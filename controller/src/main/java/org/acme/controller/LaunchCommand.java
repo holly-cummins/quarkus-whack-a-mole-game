@@ -42,7 +42,7 @@ public class LaunchCommand implements Runnable {
         MoleLauncher launcher = new MoleLauncher(mode, borderless);
 
         if (dryRun) {
-            tiles.forEach(tile -> System.out.println(String.join(" ", launcher.command(tile))));
+            tiles.forEach(tile -> System.out.println(String.join(" ", launcher.command(tile, MoleLauncher.nowMicros()))));
             return;
         }
 

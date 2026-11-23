@@ -3,6 +3,8 @@ package org.acme.controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +28,11 @@ public class MoleLauncher {
         return mode;
     }
 
-    public List<String> command(Tile tile) {
+    /**
+     * @param spawnedAtMicros when the mole is being launched, in microseconds since the epoch, so it can show how
+     *                        long it took to appear
+     */
+    public List<String> command(Tile tile, long spawnedAtMicros) {
         List<String> command = new ArrayList<>();
         if (mode == Mode.NATIVE) {
             command.add(NATIVE_EXECUTABLE.toString());
@@ -43,6 +49,7 @@ public class MoleLauncher {
         command.add("-Dmole.width=" + tile.width());
         command.add("-Dmole.height=" + tile.height());
         command.add("-Dmole.borderless=" + borderless);
+        command.add("-Dmole.spawned-at=" + spawnedAtMicros);
         if (mode == Mode.JVM) {
             command.add("-jar");
             command.add(JAR.toString());
@@ -51,7 +58,12 @@ public class MoleLauncher {
     }
 
     public Process launch(Tile tile) throws IOException {
-        return new ProcessBuilder(command(tile)).inheritIO().start();
+        // Take the timestamp as late as possible, so the mole's startup time covers only the launch itself
+        return new ProcessBuilder(command(tile, nowMicros())).inheritIO().start();
+    }
+
+    static long nowMicros() {
+        return ChronoUnit.MICROS.between(Instant.EPOCH, Instant.now());
     }
 
     private static Mode resolve(Mode requested) {

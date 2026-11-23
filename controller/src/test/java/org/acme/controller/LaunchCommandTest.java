@@ -19,5 +19,6 @@ class LaunchCommandTest {
         assertEquals(4, lines.size());
         assertTrue(lines.get(3).contains("-Dmole.id=3 -Dmole.x=200 -Dmole.y=150 -Dmole.width=200 -Dmole.height=150"),
                 lines.get(3));
+        assertTrue(lines.get(3).matches(".* -Dmole\\.spawned-at=\\d{16}( .*)?"), lines.get(3));
     }
 }
