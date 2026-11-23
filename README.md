@@ -17,9 +17,7 @@ The repo has two Quarkus applications:
 ./mvnw package -Dnative -pl mole   # native mole only (the controller can stay on the JVM)
 ```
 
-Native builds need [Mandrel](https://github.com/graalvm/mandrel/releases) or GraalVM for JDK 25.0.4 or newer. The easiest way is [mise](https://mise.jdx.dev): `mise.toml` pins Mandrel 25.0.5, so in this directory `mise install` fetches it and sets `JAVA_HOME`, which is all Quarkus needs. (Run `mise trust` the first time.) Without mise, point `GRAALVM_HOME` at a Mandrel or GraalVM install.
-
-CI reads the Mandrel version from `mise.toml` too, and checks each download against a SHA-256 pinned in `.github/workflows/ci.yml`. When you bump the version, update those checksums from the `.sha256` files on the [Mandrel release page](https://github.com/graalvm/mandrel/releases).
+Native builds need [Mandrel](https://github.com/graalvm/mandrel/releases) or GraalVM for JDK 25.0.4 or newer. The easiest way is [mise](https://mise.jdx.dev): `mise.toml` pins Mandrel 25.0.5, so in this directory `mise install` fetches it and sets `JAVA_HOME`, which is all Quarkus needs. (Run `mise trust` the first time.) Without mise, point `GRAALVM_HOME` at a Mandrel or GraalVM install. CI reads the Mandrel version from `mise.toml` too.
 
 `scripts/smoke-test.sh` checks a native build end to end: the native controller launches a grid of native moles, every window must appear, and stopping the controller must close them. It needs an X display and `xwininfo`; on a headless Linux box, run it as `xvfb-run scripts/smoke-test.sh`.
 
