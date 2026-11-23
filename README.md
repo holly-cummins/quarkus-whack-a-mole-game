@@ -19,21 +19,23 @@ The repo has two Quarkus applications:
 
 Native builds need [Mandrel](https://github.com/graalvm/mandrel/releases) or GraalVM for JDK 25.0.4 or newer. The easiest way is [mise](https://mise.jdx.dev): `mise.toml` pins Mandrel 25.0.5, so in this directory `mise install` fetches it and sets `JAVA_HOME`, which is all Quarkus needs. (Run `mise trust` the first time.) Without mise, point `GRAALVM_HOME` at a Mandrel or GraalVM install. CI reads the Mandrel version from `mise.toml` too.
 
-`scripts/smoke-test.sh` checks a native build end to end: the native controller launches a grid of native moles, every window must appear, and stopping the controller must close them. It needs an X display and `xwininfo`; on a headless Linux box, run it as `xvfb-run scripts/smoke-test.sh`.
+`scripts/smoke-test.sh` checks a native build end to end: the native controller launches a grid of native moles, every window must appear, a mole that closes must be replaced, and stopping the controller must close them. It needs an X display and `xwininfo`; on a headless Linux box, run it as `xvfb-run scripts/smoke-test.sh`.
 
 ## Run
 
 Run from the repository root, because the controller finds the mole under `mole/target/`:
 
 ```
-java -jar controller/target/quarkus-app/quarkus-run.jar launch 12 --screen-width 1920 --screen-height 1080
+java -jar controller/target/quarkus-app/quarkus-run.jar launch --count 12 --screen-width 1920 --screen-height 1080
 ```
 
-The number is how many moles to launch; the controller works out the rows and columns. By default each tile has the screen's aspect ratio. Add `--square` for square tiles, as the video needs. When the count doesn't fill the grid, the spare slots stay empty.
+`--count` is roughly how many slots you want. The controller works out the rows and columns, and rounds the count up to fill the last row, so 7 becomes a 3x3 grid of 9. By default each tile has the screen's aspect ratio. Add `--square` for square tiles, as the video needs.
+
+Add `--sparseness 30` to leave 30% of the slots empty at the start, chosen at random. Whenever a mole closes, a new one opens in a random empty slot, and the slot it left becomes empty. With no empty slots, the new mole takes the old one's place.
 
 If a native mole has been built, it's used automatically. Use `--mode JVM` or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
 
-Stopping the controller (Ctrl-C) closes every mole it started.
+Stopping the controller (Ctrl-C) closes every mole it started. A mole that exits with an error within a second of launch isn't replaced, so a broken build doesn't relaunch forever.
 
 Notes:
 - SWT is not compatible with dev mode on Mac.

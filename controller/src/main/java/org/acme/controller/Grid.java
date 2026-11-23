@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * A grid of equally sized tiles, centred on the screen, with a gap between tiles and at least that gap around the
- * edges. A grid may have more slots than moles; the spare slots are left empty.
+ * edges. The grid may have more slots than were asked for, to fill its last row; the launcher fills them all.
  */
 public record Grid(int columns, int rows, int tileWidth, int tileHeight, int left, int top, int gap) {
 

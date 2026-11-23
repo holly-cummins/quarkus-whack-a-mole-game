@@ -1,19 +1,28 @@
 package org.acme.controller;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Spec;
 
 @Command(name = "launch", mixinStandardHelpOptions = true,
-        description = "Tile the screen with a grid of moles and wait until they are all closed.")
+        description = "Tile the screen with a grid of moles. Whenever one closes, a new one opens in a random empty slot. "
+                + "Stop with Ctrl-C, which closes them all.")
 public class LaunchCommand implements Runnable {
 
-    @Parameters(paramLabel = "COUNT", description = "How many moles to launch. The rows and columns are worked out to fit.")
+    @Spec
+    CommandSpec spec;
+
+    @Option(names = { "-n", "--count" }, defaultValue = "12",
+            description = "Roughly how many slots the grid should have. The rows and columns are worked out to fit, "
+                    + "and the count is rounded up to fill the last row (default: ${DEFAULT-VALUE})")
     int count;
+
+    @Option(names = "--sparseness", defaultValue = "0", paramLabel = "PERCENT",
+            description = "Percentage of slots to leave empty at the start, as gaps for moles to move into "
+                    + "(default: ${DEFAULT-VALUE})")
+    int sparseness;
 
     @Option(names = "--square", description = "Make the tiles square, as the video needs. "
             + "By default tiles take the screen's aspect ratio.")
@@ -41,30 +50,34 @@ public class LaunchCommand implements Runnable {
     @Override
     public void run() {
         double aspectRatio = square ? 1.0 : (double) screenWidth / screenHeight;
-        Grid grid = Grid.fit(count, screenWidth, screenHeight, aspectRatio, gap);
-        List<Tile> tiles = grid.tiles().subList(0, count);
+        Grid grid;
+        Board board;
+        try {
+            grid = Grid.fit(count, screenWidth, screenHeight, aspectRatio, gap);
+            board = new Board(grid.tiles(), sparseness);
+        } catch (IllegalArgumentException e) {
+            throw new ParameterException(spec.commandLine(), e.getMessage());
+        }
         MoleLauncher launcher = new MoleLauncher(mode, borderless);
 
         if (dryRun) {
-            tiles.forEach(tile -> System.out.println(String.join(" ", launcher.command(tile, MoleLauncher.nowMicros()))));
+            board.initial().forEach(
+                    tile -> System.out.println(String.join(" ", launcher.command(tile, MoleLauncher.nowMicros()))));
             return;
         }
 
-        List<Process> moles = new ArrayList<>();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> moles.forEach(Process::destroy)));
+        Fleet fleet = new Fleet(board, launcher);
+        Runtime.getRuntime().addShutdownHook(new Thread(fleet::stop));
 
         long start = System.nanoTime();
-        for (Tile tile : tiles) {
-            try {
-                moles.add(launcher.launch(tile));
-            } catch (Exception e) {
-                System.err.println("Could not launch mole " + tile.id() + ": " + e.getMessage());
-            }
+        int launched = fleet.start();
+        System.out.printf("Spawned %d %s moles in %.1f ms, on a %dx%d grid of %dx%d tiles with %d empty%n", launched,
+                launcher.mode(), (System.nanoTime() - start) / 1e6, grid.columns(), grid.rows(), grid.tileWidth(),
+                grid.tileHeight(), board.empty().size());
+        try {
+            fleet.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-        System.out.printf("Spawned %d %s moles in %.1f ms, on a %dx%d grid of %dx%d tiles%n", moles.size(), launcher.mode(),
-                (System.nanoTime() - start) / 1e6, grid.columns(), grid.rows(), grid.tileWidth(), grid.tileHeight());
-
-        CompletableFuture.allOf(moles.stream().map(Process::onExit).toArray(CompletableFuture[]::new)).join();
-        System.out.println("All moles closed.");
     }
 }
