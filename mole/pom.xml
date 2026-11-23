@@ -18,6 +18,11 @@
             <groupId>io.quarkiverse.desktop</groupId>
             <artifactId>quarkus-desktop-swt</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -51,6 +56,49 @@
                 <!-- Commas are escaped because Quarkus splits this list on unescaped commas -->
                 <quarkus.native.additional-build-args>-H:NativeLinkerOption=-Wl\,-sectcreate\,__TEXT\,__info_plist\,${project.basedir}/src/main/macos/Info.plist</quarkus.native.additional-build-args>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables combine.children="append">
+                                <!-- SWT must own the main thread on macOS, so JVM moles started by integration tests need this -->
+                                <quarkus.test.arg-line>-XstartOnFirstThread</quarkus.test.arg-line>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <!--
+                Leyden: build the JVM mole with an AOT cache (JDK 25+), trained by MoleTrainingIT, which needs a display.
+                ./mvnw verify -pl mole -Dleyden, then run moles with the controller's mode LEYDEN.
+            -->
+            <id>leyden</id>
+            <activation>
+                <property>
+                    <name>leyden</name>
+                </property>
+            </activation>
+            <properties>
+                <quarkus.package.jar.aot.enabled>true</quarkus.package.jar.aot.enabled>
+                <skipITs>false</skipITs>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables combine.children="append">
+                                <!-- The test framework reads these to decide whether to record the AOT cache -->
+                                <quarkus.package.jar.aot.enabled>true</quarkus.package.jar.aot.enabled>
+                                <mole.training>true</mole.training>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

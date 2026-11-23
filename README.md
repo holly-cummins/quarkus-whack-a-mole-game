@@ -35,6 +35,20 @@ Add `--sparseness 30` to leave 30% of the slots empty at the start, chosen at ra
 
 One mole is the target. It shows the Quarkus logo, and clicking it closes it; clicks on the other moles do nothing. The target's replacement becomes the new target, so the target jumps to a random empty slot, and it's always a mole that has only just started. Replacements flash as they appear, with rings rippling out from the centre. The entrance only animates a window that is already showing, so it doesn't slow down the replacement.
 
+### Leyden
+
+Leyden mode runs JVM moles with a JDK AOT cache ([JEP 483](https://openjdk.org/jeps/483) and successors, JDK 25), which Quarkus builds by recording a training run of the app. Build the mole with the `leyden` profile:
+
+```
+./mvnw verify -pl mole -Dleyden
+```
+
+This packages the mole as an `aot-jar`, then runs `MoleTrainingIT` while the JVM records what the mole does: the `training` profile makes it a target that makes its entrance and then clicks itself, so the recording covers a whole mole's life. Quarkus then writes the cache to `mole/target/quarkus-app/app.aot`. The training run opens a window, so it needs a display (on a headless Linux box, use `xvfb-run`).
+
+Then launch with `--mode LEYDEN`. The cache only works on the exact JDK that built it, so run the controller with the same `java`. After a Leyden build, `--mode JVM` runs the same `aot-jar` without the cache, which Quarkus says is a little slower than its usual `fast-jar`; a normal build puts the `fast-jar` back.
+
+Filling the screen in mole apocalypse, without clicking, on a 10-core Linux box: JVM 10.4 s, Leyden 6.8 s, native 1.8 s.
+
 ### Mole apocalypse
 
 Start the controller with the `apocalypse` profile:
@@ -43,7 +57,7 @@ Start the controller with the `apocalypse` profile:
 java -Dquarkus.profile=apocalypse -jar controller/target/quarkus-app/quarkus-run.jar launch
 ```
 
-(or set `QUARKUS_PROFILE=apocalypse`; for a native controller, put `-Dquarkus.profile=apocalypse` before `launch`). A row of moles appears along the bottom of the screen, and new ones keep coming, filling the lowest gaps first so the moles rise up the screen. Every mole is a target: click them to close them. There's no timer: each new mole is launched as soon as the one before it has painted its window, so the moles come as fast as they can start. When the screen is full, it's game over, with your score. The GAME OVER screen ignores clicks, so frantic clicking doesn't hide your score; press Ctrl-C in the controller's terminal to finish. Its background is very transparent, so the moles show through; set `MOLE_GAME_OVER_BACKGROUND_OPACITY` (a percentage, default 20) to change that. On Linux, the transparency needs a compositing window manager.
+(or set `QUARKUS_PROFILE=apocalypse`; for a native controller, put `-Dquarkus.profile=apocalypse` before `launch`). A row of moles appears along the bottom of the screen, one at a time, and new ones keep coming, filling the lowest gaps first so the moles rise up the screen. Every mole is a target: click them to close them. There's no timer: each new mole is launched as soon as the one before it has painted its window, so the moles come as fast as they can start. When the screen is full, it's game over, with your score. The GAME OVER screen ignores clicks, so frantic clicking doesn't hide your score; press Ctrl-C in the controller's terminal to finish. Its background is very transparent, so the moles show through; set `MOLE_GAME_OVER_BACKGROUND_OPACITY` (a percentage, default 20) to change that. On Linux, the transparency needs a compositing window manager.
 
 Native moles start so fast that the screen fills in about a second and a half. With `--mode JVM` you get several seconds and a fighting chance.
 
@@ -66,7 +80,7 @@ The entrance is configurable. Moles inherit the controller's environment, so set
 
 For example, `MOLE_ENTRANCE_RIPPLES_COUNT=6 MOLE_ENTRANCE_FLASH_MILLIS=0 java -jar controller/target/quarkus-app/quarkus-run.jar launch --sparseness 30`.
 
-If a native mole has been built, it's used automatically. Use `--mode JVM` or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
+If a native mole has been built, it's used automatically. Use `--mode JVM`, `--mode LEYDEN` (see Leyden, above) or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
 
 Stopping the controller (Ctrl-C) closes every mole it started. A mole that exits with an error within a second of launch isn't replaced, so a broken build doesn't relaunch forever.
 

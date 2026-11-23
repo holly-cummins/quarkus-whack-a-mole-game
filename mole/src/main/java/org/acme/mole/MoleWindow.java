@@ -23,6 +23,7 @@ import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Rectangle;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -64,6 +65,14 @@ public class MoleWindow {
      */
     @ConfigProperty(name = "mole.macos.hide-dock-icon-after-launch", defaultValue = "false")
     boolean hideDockIconAfterLaunch;
+
+    /**
+     * Clicks the mole, as a player would, this long after it opens. The Leyden training run uses it (see the
+     * {@code training} profile in application.properties): the mole starts, paints, makes its entrance and is hit,
+     * then exits, so the AOT cache learns all of that.
+     */
+    @ConfigProperty(name = "mole.auto-click-after-millis")
+    Optional<Integer> autoClickAfterMillis;
 
     /** The score, for the game-over screen. */
     @ConfigProperty(name = "mole.message", defaultValue = " ")
@@ -158,6 +167,12 @@ public class MoleWindow {
             entrance = new Entrance(entranceConfig, shell, MOLE_BROWN);
             entrance.start();
         }
+        autoClickAfterMillis.ifPresent(delay -> event.display().timerExec(delay, () -> {
+            if (!shell.isDisposed()) {
+                // The same listeners a real click runs; a target closes
+                shell.notifyListeners(SWT.MouseDown, new Event());
+            }
+        }));
     }
 
     private Image loadLogo() {

@@ -72,6 +72,13 @@ public class LaunchCommand implements Runnable {
             throw new ParameterException(spec.commandLine(), e.getMessage());
         }
         MoleLauncher launcher = new MoleLauncher(mode, borderless, smallRyeConfig.getProfiles());
+        if (!dryRun) {
+            try {
+                launcher.checkBuilt();
+            } catch (IllegalStateException e) {
+                throw new ParameterException(spec.commandLine(), e.getMessage());
+            }
+        }
 
         if (dryRun) {
             // A real launch picks a random target; a dry run makes the first mole the target, so the output is stable
@@ -88,18 +95,20 @@ public class LaunchCommand implements Runnable {
             fleet.stop();
         }));
 
-        long start = System.nanoTime();
-        int launched = fleet.start();
-        startedNanos = System.nanoTime();
-        System.out.printf("%s: spawned %d %s moles in %.1f ms, on a %dx%d grid of %dx%d tiles with %d empty%n", game,
-                launched, launcher.mode(), (startedNanos - start) / 1e6, grid.columns(), grid.rows(), grid.tileWidth(),
-                grid.tileHeight(), board.empty().size());
         if (game.spawns()) {
-            if (board.isFull()) {
-                gameOver(fleet);
-            } else {
-                spawner.start();
-            }
+            // The spawner launches the first moles too, one at a time
+            startedNanos = System.nanoTime();
+            System.out.printf("%s: %s moles, on a %dx%d grid of %dx%d tiles, starting with %d%n", game,
+                    launcher.mode(), grid.columns(), grid.rows(), grid.tileWidth(), grid.tileHeight(),
+                    board.initial().size());
+            spawner.start();
+        } else {
+            long start = System.nanoTime();
+            int launched = fleet.start();
+            startedNanos = System.nanoTime();
+            System.out.printf("%s: spawned %d %s moles in %.1f ms, on a %dx%d grid of %dx%d tiles with %d empty%n",
+                    game, launched, launcher.mode(), (startedNanos - start) / 1e6, grid.columns(), grid.rows(),
+                    grid.tileWidth(), grid.tileHeight(), board.empty().size());
         }
         try {
             fleet.await();

@@ -40,12 +40,25 @@ public class Fleet {
         this.game = game;
     }
 
-    /** Launches a mole in every slot the board starts with, and returns how many are running. */
+    /** Launches a mole in every slot the board starts with, all at once, and returns how many are running. */
     public synchronized int start() {
         List<Tile> initial = board.initial();
         Tile target = initial.get(ThreadLocalRandom.current().nextInt(initial.size()));
         initial.forEach(tile -> launch(tile, game.everyMoleIsATarget() || tile.equals(target), false));
         return moles;
+    }
+
+    /**
+     * Launches one of the moles the board starts with. Returns a future that completes once the mole has painted its
+     * window.
+     */
+    public synchronized CompletableFuture<Void> startOne(Tile tile) {
+        return launch(tile, game.everyMoleIsATarget(), false);
+    }
+
+    /** The slots the board starts with a mole in, in the order they should appear. */
+    public List<Tile> firstSlots() {
+        return board.initial();
     }
 
     /**

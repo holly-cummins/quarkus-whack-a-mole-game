@@ -13,13 +13,26 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** Builds the command line for a mole, as a native executable or on the JVM, and starts it. */
+/**
+ * Builds the command line for a mole, as a native executable, on the JVM, or on the JVM with a Leyden AOT cache, and
+ * starts it.
+ */
 public class MoleLauncher {
 
-    public enum Mode { AUTO, NATIVE, JVM }
+    public enum Mode {
+        AUTO,
+        NATIVE,
+        JVM,
+        /**
+         * On the JVM, with the AOT cache from a Leyden build of the mole ({@code ./mvnw verify -pl mole -Dleyden}). The
+         * cache only works with the exact JDK that built it, so run the controller on that JDK.
+         */
+        LEYDEN
+    }
 
     static final Path NATIVE_EXECUTABLE = Path.of("mole/target/mole-1.0.0-SNAPSHOT-runner");
     static final Path JAR = Path.of("mole/target/quarkus-app/quarkus-run.jar");
+    static final Path AOT_CACHE = Path.of("mole/target/quarkus-app/app.aot");
 
     /** What a mole prints on its own line once it has painted its window. */
     static final String READY = "mole-ready";
@@ -134,16 +147,36 @@ public class MoleLauncher {
                 // SWT must own the main thread on macOS
                 command.add("-XstartOnFirstThread");
             }
+            if (mode == Mode.LEYDEN) {
+                command.add("-XX:AOTCache=" + AOT_CACHE);
+            }
         }
         properties.forEach((name, value) -> command.add("-D" + name + "=" + value));
         if (!profiles.isEmpty()) {
             command.add("-Dquarkus.profile=" + String.join(",", profiles));
         }
-        if (mode == Mode.JVM) {
+        if (mode == Mode.JVM || mode == Mode.LEYDEN) {
             command.add("-jar");
             command.add(JAR.toString());
         }
         return command;
+    }
+
+    /** Checks the mole has been built for this mode, and explains how to build it if not. */
+    public void checkBuilt() {
+        Path needed = switch (mode) {
+            case NATIVE -> NATIVE_EXECUTABLE;
+            case LEYDEN -> AOT_CACHE;
+            default -> JAR;
+        };
+        if (!Files.exists(needed)) {
+            throw new IllegalStateException("No " + needed + " for " + mode + " moles; build it with ./mvnw "
+                    + switch (mode) {
+                        case NATIVE -> "package -pl mole -Dnative";
+                        case LEYDEN -> "verify -pl mole -Dleyden (the training run needs a display)";
+                        default -> "package -pl mole";
+                    });
+        }
     }
 
     static long nowMicros() {

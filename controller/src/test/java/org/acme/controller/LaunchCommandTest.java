@@ -49,6 +49,14 @@ class LaunchCommandTest {
         assertTrue(result.getErrorOutput().contains("percentage"), result.getErrorOutput());
     }
 
+    @Test
+    @Launch({ "launch", "--dry-run", "--mode=leyden", "--count", "1" })
+    void leydenMoleUsesTheAotCache(LaunchResult result) {
+        String command = moleCommands(result).getFirst();
+        assertTrue(command.contains(" -XX:AOTCache=mole/target/quarkus-app/app.aot "), command);
+        assertTrue(command.endsWith(" -jar mole/target/quarkus-app/quarkus-run.jar"), command);
+    }
+
     private static List<String> moleCommands(LaunchResult result) {
         return result.getOutputStream().stream().filter(line -> line.contains("-Dmole.id=")).toList();
     }
