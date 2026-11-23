@@ -38,7 +38,11 @@ public class MoleWindow {
     private Shell shell;
 
     void open(@Observes SwtStartupEvent event) {
-        shell = new Shell(event.display(), borderless ? SWT.NO_TRIM : SWT.SHELL_TRIM);
+        MacOs.hideFromDock();
+        // ON_TOP: float above other apps' windows, and take a click even when this mole isn't the active app.
+        // NO_FOCUS: a new mole doesn't steal keyboard focus from whatever the user is doing.
+        int style = SWT.ON_TOP | SWT.NO_FOCUS | (borderless ? SWT.NO_TRIM : SWT.SHELL_TRIM);
+        shell = new Shell(event.display(), style);
         shell.setText("Mole " + id);
         shell.setBackground(new Color(0x8B, 0x5A, 0x2B));
         shell.setBounds(x, y, width, height);

@@ -40,23 +40,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Checksums are pinned for the Mandrel version in mise.toml. When you bump that version,
+          # update these from the .sha256 files on the Mandrel release page, or this job fails.
           - os: ubuntu-latest
             mandrel: linux-amd64
             home: ""
+            sha256: 2436bb98b96b2cf439e218dfa3df53978588bc23c6e9f2cfed6a408db189951d
           - os: macos-latest
             mandrel: macos-aarch64
             home: /Contents/Home
+            sha256: bef93bae36710af5ac938149c0cbe93cad984d9185c73c763b240b7b2064dfc9
     runs-on: ${{ matrix.os }}
-    env:
-      # Quarkus 4.0.0.CR1 needs GraalVM/Mandrel for JDK 25.0.4 or newer
-      MANDREL_VERSION: 25.0.5.0-Final
     steps:
       - uses: actions/checkout@v5
 
+      # Downloaded directly rather than through a third-party action. The version comes from
+      # mise.toml, so local builds and CI use the same Mandrel.
       - name: Install Mandrel
         run: |
-          curl -sSfL "https://github.com/graalvm/mandrel/releases/download/mandrel-${MANDREL_VERSION}/mandrel-java25-${{ matrix.mandrel }}-${MANDREL_VERSION}.tar.gz" \
-            | tar xz -C "$RUNNER_TEMP"
+          MANDREL_VERSION=$(sed -nE 's/^java = "mandrel-([^+"]+).*/\1/p' mise.toml)
+          if [ -z "$MANDREL_VERSION" ]; then echo "No Mandrel version found in mise.toml"; exit 1; fi
+          echo "Using Mandrel $MANDREL_VERSION"
+          archive="$RUNNER_TEMP/mandrel.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/graalvm/mandrel/releases/download/mandrel-${MANDREL_VERSION}/mandrel-java25-${{ matrix.mandrel }}-${MANDREL_VERSION}.tar.gz"
+          echo "${{ matrix.sha256 }}  $archive" | shasum -a 256 -c -
+          tar xzf "$archive" -C "$RUNNER_TEMP"
           home="$RUNNER_TEMP/mandrel-java25-${MANDREL_VERSION}${{ matrix.home }}"
           echo "GRAALVM_HOME=$home" >> "$GITHUB_ENV"
           echo "JAVA_HOME=$home" >> "$GITHUB_ENV"

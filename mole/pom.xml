@@ -37,4 +37,20 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <!-- Embed Info.plist in the native executable so macOS moles get no Dock icon and don't steal focus. See MacOs.java. -->
+            <id>macos</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <properties>
+                <!-- Commas are escaped because Quarkus splits this list on unescaped commas -->
+                <quarkus.native.additional-build-args>-H:NativeLinkerOption=-Wl\,-sectcreate\,__TEXT\,__info_plist\,${project.basedir}/src/main/macos/Info.plist</quarkus.native.additional-build-args>
+            </properties>
+        </profile>
+    </profiles>
 </project>

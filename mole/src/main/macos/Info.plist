@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Embedded in the native macOS mole executable. CFBundlePackageType=APPL stops SWT forcing a Dock icon
+     and focus on the app at launch; LSUIElement keeps it out of the Dock and the app switcher. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>org.acme.mole</string>
+    <key>CFBundleName</key>
+    <string>Mole</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>
