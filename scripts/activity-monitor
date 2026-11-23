@@ -1,0 +1,22 @@
+osascript -e 'quit app "Activity Monitor"'
+while pgrep -xq "Activity Monitor"; do sleep 0.1; done
+defaults write com.apple.ActivityMonitor UpdatePeriod -int 1
+open -a "Activity Monitor"
+osascript <<'EOF'
+tell application "System Events" to tell process "Activity Monitor"
+    repeat until exists window 1
+        delay 0.2
+    end repeat
+    delay 0.5
+    set frontmost to true
+    repeat 20 times
+        set position of window 1 to {1110, 40}
+        set size of window 1 to {400, 940}
+        delay 0.1
+        if position of window 1 is {1110, 40} then exit repeat
+    end repeat
+    keystroke "f" using {command down, option down}
+    keystroke "mole"
+end tell
+EOF
+ac
