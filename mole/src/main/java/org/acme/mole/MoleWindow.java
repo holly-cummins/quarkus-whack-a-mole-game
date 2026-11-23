@@ -13,6 +13,7 @@ import java.util.OptionalDouble;
 import io.quarkiverse.desktop.swt.SwtStartupEvent;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.swt.SWT;
@@ -35,7 +36,7 @@ import org.eclipse.swt.widgets.Shell;
  * start, as in its "started in" log line, and how long it took from being launched to the window's first paint.
  * <p>
  * One mole at a time is the target: it shows the Quarkus logo, and closes when clicked. Clicks on other moles do
- * nothing. A mole that replaces one that closed flashes as it appears.
+ * nothing. A mole that replaces one that closed makes an {@link Entrance}.
  */
 @Singleton
 public class MoleWindow {
@@ -44,9 +45,6 @@ public class MoleWindow {
     private static final Color TEXT = new Color(0xFF, 0xF4, 0xE0);
     private static final String QUARKUS_CAPTION = "Quarkus started in";
     private static final String PAINT_CAPTION = "window painted in";
-    private static final Color FLASH = new Color(0xFF, 0xE0, 0x66);
-    private static final int FLASH_MILLIS = 600;
-    private static final int FRAME_MILLIS = 16;
 
     @ConfigProperty(name = "mole.id", defaultValue = "0")
     int id;
@@ -75,6 +73,9 @@ public class MoleWindow {
     @ConfigProperty(name = "mole.replacement", defaultValue = "false")
     boolean replacement;
 
+    @Inject
+    EntranceConfig entranceConfig;
+
     /**
      * When the controller launched this mole, in microseconds since the epoch. Without it (a mole started by hand),
      * the OS's record of the process start time is used, which on Linux is only accurate to 10 ms.
@@ -88,6 +89,7 @@ public class MoleWindow {
     private Font timeFont;
     private Font captionFont;
     private Image logo;
+    private Entrance entrance;
 
     void started(@Observes StartupEvent event) {
         quarkusMillis = QuarkusStartup.millisSinceBoot();
@@ -119,7 +121,8 @@ public class MoleWindow {
         }
         shell.open();
         if (replacement) {
-            flash(System.nanoTime());
+            entrance = new Entrance(entranceConfig, shell, MOLE_BROWN);
+            entrance.start();
         }
     }
 
@@ -129,31 +132,6 @@ public class MoleWindow {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    /** Fades the background from a bright flash back to brown, one frame at a time on the UI thread. */
-    private void flash(long startNanos) {
-        if (shell.isDisposed()) {
-            return;
-        }
-        double progress = Math.min(1, (System.nanoTime() - startNanos) / (FLASH_MILLIS * 1e6));
-        double eased = 1 - Math.pow(1 - progress, 3);
-        shell.setBackground(blend(FLASH, MOLE_BROWN, eased));
-        shell.redraw();
-        if (progress < 1) {
-            shell.getDisplay().timerExec(FRAME_MILLIS, () -> flash(startNanos));
-        }
-    }
-
-    private static Color blend(Color from, Color to, double amount) {
-        return new Color(
-                (int) Math.round(from.getRed() + (to.getRed() - from.getRed()) * amount),
-                (int) Math.round(from.getGreen() + (to.getGreen() - from.getGreen()) * amount),
-                (int) Math.round(from.getBlue() + (to.getBlue() - from.getBlue()) * amount));
-    }
-
-    public Shell shell() {
-        return shell;
     }
 
     private void paint(PaintEvent event) {
@@ -166,6 +144,9 @@ public class MoleWindow {
         }
         Rectangle area = shell.getClientArea();
         GC gc = event.gc;
+        if (entrance != null) {
+            entrance.paint(gc, area);
+        }
         if (logo != null) {
             area = drawLogo(gc, area);
         }

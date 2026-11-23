@@ -33,7 +33,22 @@ java -jar controller/target/quarkus-app/quarkus-run.jar launch --count 12 --scre
 
 Add `--sparseness 30` to leave 30% of the slots empty at the start, chosen at random. Whenever a mole closes, a new one opens in a random empty slot, and the slot it left becomes empty. With no empty slots, the new mole takes the old one's place.
 
-One mole is the target. It shows the Quarkus logo, and clicking it closes it; clicks on the other moles do nothing. The target's replacement becomes the new target, so the target jumps to a random empty slot, and it's always a mole that has only just started. Replacements flash as they appear.
+One mole is the target. It shows the Quarkus logo, and clicking it closes it; clicks on the other moles do nothing. The target's replacement becomes the new target, so the target jumps to a random empty slot, and it's always a mole that has only just started. Replacements flash as they appear, with rings rippling out from the centre. The entrance only animates a window that is already showing, so it doesn't slow down the replacement.
+
+The entrance is configurable. Moles inherit the controller's environment, so set environment variables before starting the controller:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MOLE_ENTRANCE_FLASH_COLOUR` | `#FFE066` | Colour the background flashes to, before fading back to brown |
+| `MOLE_ENTRANCE_FLASH_MILLIS` | `600` | How long the fade takes; `0` turns the flash off |
+| `MOLE_ENTRANCE_RIPPLES_COLOUR` | `#4695EB` | Colour of the rings |
+| `MOLE_ENTRANCE_RIPPLES_COUNT` | `3` | How many rings; `0` turns them off |
+| `MOLE_ENTRANCE_RIPPLES_MILLIS` | `540` | How long each ring takes to spread out and fade |
+| `MOLE_ENTRANCE_RIPPLES_INTERVAL_MILLIS` | `180` | Delay between one ring and the next |
+| `MOLE_ENTRANCE_RIPPLES_WIDTH_PERCENT` | `7` | Starting thickness of a ring, as a percentage of the window's shorter side |
+| `MOLE_ENTRANCE_FRAME_MILLIS` | `16` | Time between animation frames |
+
+For example, `MOLE_ENTRANCE_RIPPLES_COUNT=6 MOLE_ENTRANCE_FLASH_MILLIS=0 java -jar controller/target/quarkus-app/quarkus-run.jar launch --sparseness 30`.
 
 If a native mole has been built, it's used automatically. Use `--mode JVM` or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
 
