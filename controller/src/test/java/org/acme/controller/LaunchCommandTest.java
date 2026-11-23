@@ -25,6 +25,13 @@ class LaunchCommandTest {
     }
 
     @Test
+    @Launch({ "launch", "--dry-run", "--mode", "NATIVE", "--count", "12" })
+    void exactlyOneMoleIsTheTarget(LaunchResult result) {
+        assertEquals(1, moleCommands(result).stream().filter(line -> line.contains("-Dmole.target=true")).count());
+        assertTrue(moleCommands(result).stream().allMatch(line -> line.contains("-Dmole.replacement=false")));
+    }
+
+    @Test
     @Launch({ "launch", "--dry-run", "--mode", "NATIVE", "--count", "7" })
     void countIsRoundedUpToFillTheGrid(LaunchResult result) {
         assertEquals(9, moleCommands(result).size());

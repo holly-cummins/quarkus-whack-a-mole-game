@@ -33,6 +33,8 @@ java -jar controller/target/quarkus-app/quarkus-run.jar launch --count 12 --scre
 
 Add `--sparseness 30` to leave 30% of the slots empty at the start, chosen at random. Whenever a mole closes, a new one opens in a random empty slot, and the slot it left becomes empty. With no empty slots, the new mole takes the old one's place.
 
+One mole is the target. It shows the Quarkus logo, and clicking it closes it; clicks on the other moles do nothing. The target's replacement becomes the new target, so the target jumps to a random empty slot, and it's always a mole that has only just started. Replacements flash as they appear.
+
 If a native mole has been built, it's used automatically. Use `--mode JVM` or `--mode NATIVE` to choose. Add `--dry-run` to print the commands instead of running them, and `--help` to see all options.
 
 Stopping the controller (Ctrl-C) closes every mole it started. A mole that exits with an error within a second of launch isn't replaced, so a broken build doesn't relaunch forever.

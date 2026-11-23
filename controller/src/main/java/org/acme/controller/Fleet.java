@@ -2,11 +2,16 @@ package org.acme.controller;
 
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * The running moles. Whenever one closes, a replacement opens in a random empty slot of the board, until the fleet is
  * stopped.
+ * <p>
+ * One mole is the target, the only one the player can hit. When the target closes, its replacement is the new target,
+ * so the target jumps to a random empty slot, and is always a freshly started mole.
  * <p>
  * Thread-safe: moles close on JDK process-reaper threads, while {@link #stop()} runs on a shutdown hook. Launching and
  * stopping share the fleet's lock, so no mole can be launched after the fleet has stopped and be left running.
@@ -26,9 +31,11 @@ public class Fleet {
         this.launcher = launcher;
     }
 
-    /** Launches a mole in every slot the board starts with, and returns how many are running. */
+    /** Launches a mole in every slot the board starts with, one of them the target, and returns how many are running. */
     public synchronized int start() {
-        board.initial().forEach(this::launch);
+        List<Tile> initial = board.initial();
+        Tile target = initial.get(ThreadLocalRandom.current().nextInt(initial.size()));
+        initial.forEach(tile -> launch(tile, tile.equals(target), false));
         return moles.size();
     }
 
@@ -46,24 +53,24 @@ public class Fleet {
         }
     }
 
-    private synchronized void launch(Tile tile) {
+    private synchronized void launch(Tile tile, boolean target, boolean replacement) {
         if (stopped) {
             return;
         }
         long launchedAt = System.nanoTime();
         Process mole;
         try {
-            mole = launcher.launch(tile);
+            mole = launcher.launch(tile, target, replacement);
         } catch (Exception e) {
             System.err.println("Could not launch mole " + tile.id() + ": " + e.getMessage());
             board.vacate(tile);
             return;
         }
         moles.add(mole);
-        mole.onExit().thenAccept(exited -> closed(tile, exited, Duration.ofNanos(System.nanoTime() - launchedAt)));
+        mole.onExit().thenAccept(exited -> closed(tile, target, exited, Duration.ofNanos(System.nanoTime() - launchedAt)));
     }
 
-    private void closed(Tile tile, Process mole, Duration lifetime) {
+    private void closed(Tile tile, boolean target, Process mole, Duration lifetime) {
         synchronized (this) {
             moles.remove(mole);
             if (stopped) {
@@ -72,11 +79,14 @@ public class Fleet {
             if (mole.exitValue() != 0 && lifetime.compareTo(CRASH_WINDOW) < 0) {
                 System.err.printf("Mole %d exited with code %d after %d ms, so its slot stays empty%n", tile.id(),
                         mole.exitValue(), lifetime.toMillis());
+                if (target) {
+                    System.err.println("That was the target, so there is no target now");
+                }
                 board.vacate(tile);
                 notifyAll();
                 return;
             }
         }
-        launch(board.move(tile));
+        launch(board.move(tile), target, true);
     }
 }

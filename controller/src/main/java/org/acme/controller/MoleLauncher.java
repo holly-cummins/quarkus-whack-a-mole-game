@@ -29,10 +29,12 @@ public class MoleLauncher {
     }
 
     /**
+     * @param target          whether this mole is the one the player has to hit
+     * @param replacement     whether this mole replaces one that closed, so it should make an entrance
      * @param spawnedAtMicros when the mole is being launched, in microseconds since the epoch, so it can show how
      *                        long it took to appear
      */
-    public List<String> command(Tile tile, long spawnedAtMicros) {
+    public List<String> command(Tile tile, boolean target, boolean replacement, long spawnedAtMicros) {
         List<String> command = new ArrayList<>();
         if (mode == Mode.NATIVE) {
             command.add(NATIVE_EXECUTABLE.toString());
@@ -49,6 +51,8 @@ public class MoleLauncher {
         command.add("-Dmole.width=" + tile.width());
         command.add("-Dmole.height=" + tile.height());
         command.add("-Dmole.borderless=" + borderless);
+        command.add("-Dmole.target=" + target);
+        command.add("-Dmole.replacement=" + replacement);
         command.add("-Dmole.spawned-at=" + spawnedAtMicros);
         if (mode == Mode.JVM) {
             command.add("-jar");
@@ -57,9 +61,9 @@ public class MoleLauncher {
         return command;
     }
 
-    public Process launch(Tile tile) throws IOException {
+    public Process launch(Tile tile, boolean target, boolean replacement) throws IOException {
         // Take the timestamp as late as possible, so the mole's startup time covers only the launch itself
-        return new ProcessBuilder(command(tile, nowMicros())).inheritIO().start();
+        return new ProcessBuilder(command(tile, target, replacement, nowMicros())).inheritIO().start();
     }
 
     static long nowMicros() {

@@ -61,8 +61,10 @@ public class LaunchCommand implements Runnable {
         MoleLauncher launcher = new MoleLauncher(mode, borderless);
 
         if (dryRun) {
-            board.initial().forEach(
-                    tile -> System.out.println(String.join(" ", launcher.command(tile, MoleLauncher.nowMicros()))));
+            // The real launch picks a random target; a dry run makes the first mole the target, so the output is stable
+            Tile target = board.initial().getFirst();
+            board.initial().forEach(tile -> System.out.println(
+                    String.join(" ", launcher.command(tile, tile.equals(target), false, MoleLauncher.nowMicros()))));
             return;
         }
 

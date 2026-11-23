@@ -1,5 +1,8 @@
 package org.acme.mole;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -18,6 +21,7 @@ import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.FontData;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Shell;
@@ -29,6 +33,9 @@ import org.eclipse.swt.widgets.Shell;
  * <p>
  * The window shows its PID in the title bar. Its contents show two startup times: how long Quarkus took to
  * start, as in its "started in" log line, and how long it took from being launched to the window's first paint.
+ * <p>
+ * One mole at a time is the target: it shows the Quarkus logo, and closes when clicked. Clicks on other moles do
+ * nothing. A mole that replaces one that closed flashes as it appears.
  */
 @Singleton
 public class MoleWindow {
@@ -37,6 +44,9 @@ public class MoleWindow {
     private static final Color TEXT = new Color(0xFF, 0xF4, 0xE0);
     private static final String QUARKUS_CAPTION = "Quarkus started in";
     private static final String PAINT_CAPTION = "window painted in";
+    private static final Color FLASH = new Color(0xFF, 0xE0, 0x66);
+    private static final int FLASH_MILLIS = 600;
+    private static final int FRAME_MILLIS = 16;
 
     @ConfigProperty(name = "mole.id", defaultValue = "0")
     int id;
@@ -57,6 +67,14 @@ public class MoleWindow {
     @ConfigProperty(name = "mole.borderless", defaultValue = "false")
     boolean borderless;
 
+    /** The target is the one mole the player has to hit. */
+    @ConfigProperty(name = "mole.target", defaultValue = "false")
+    boolean target;
+
+    /** A replacement for a mole that closed, rather than one of the first fleet; it flashes as it appears. */
+    @ConfigProperty(name = "mole.replacement", defaultValue = "false")
+    boolean replacement;
+
     /**
      * When the controller launched this mole, in microseconds since the epoch. Without it (a mole started by hand),
      * the OS's record of the process start time is used, which on Linux is only accurate to 10 ms.
@@ -69,6 +87,7 @@ public class MoleWindow {
     private List<String[]> lines;
     private Font timeFont;
     private Font captionFont;
+    private Image logo;
 
     void started(@Observes StartupEvent event) {
         quarkusMillis = QuarkusStartup.millisSinceBoot();
@@ -89,8 +108,48 @@ public class MoleWindow {
                 timeFont.dispose();
                 captionFont.dispose();
             }
+            if (logo != null) {
+                logo.dispose();
+            }
         });
+        if (target) {
+            logo = loadLogo();
+            shell.setCursor(event.display().getSystemCursor(SWT.CURSOR_CROSS));
+            shell.addListener(SWT.MouseDown, e -> shell.close());
+        }
         shell.open();
+        if (replacement) {
+            flash(System.nanoTime());
+        }
+    }
+
+    private Image loadLogo() {
+        try (InputStream in = MoleWindow.class.getResourceAsStream("/quarkus-logo.png")) {
+            return new Image(shell.getDisplay(), in);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** Fades the background from a bright flash back to brown, one frame at a time on the UI thread. */
+    private void flash(long startNanos) {
+        if (shell.isDisposed()) {
+            return;
+        }
+        double progress = Math.min(1, (System.nanoTime() - startNanos) / (FLASH_MILLIS * 1e6));
+        double eased = 1 - Math.pow(1 - progress, 3);
+        shell.setBackground(blend(FLASH, MOLE_BROWN, eased));
+        shell.redraw();
+        if (progress < 1) {
+            shell.getDisplay().timerExec(FRAME_MILLIS, () -> flash(startNanos));
+        }
+    }
+
+    private static Color blend(Color from, Color to, double amount) {
+        return new Color(
+                (int) Math.round(from.getRed() + (to.getRed() - from.getRed()) * amount),
+                (int) Math.round(from.getGreen() + (to.getGreen() - from.getGreen()) * amount),
+                (int) Math.round(from.getBlue() + (to.getBlue() - from.getBlue()) * amount));
     }
 
     public Shell shell() {
@@ -107,6 +166,9 @@ public class MoleWindow {
         }
         Rectangle area = shell.getClientArea();
         GC gc = event.gc;
+        if (logo != null) {
+            area = drawLogo(gc, area);
+        }
         if (timeFont == null) {
             // Each line is a caption above a time; give the times most of the height
             int lineHeight = area.height / lines.size();
@@ -126,6 +188,19 @@ public class MoleWindow {
             y = drawCentred(gc, line[0], captionFont, area, y);
             y = drawCentred(gc, line[1], timeFont, area, y);
         }
+    }
+
+    /** Draws the logo, scaled to fit the top of the window, and returns the area left below it for the text. */
+    private Rectangle drawLogo(GC gc, Rectangle area) {
+        Rectangle bounds = logo.getBounds();
+        int size = Math.min(area.width * 8 / 10, area.height * 55 / 100);
+        int margin = area.height / 20;
+        gc.setAntialias(SWT.ON);
+        gc.setInterpolation(SWT.HIGH);
+        gc.drawImage(logo, 0, 0, bounds.width, bounds.height,
+                area.x + (area.width - size) / 2, area.y + margin, size, size);
+        int used = margin + size;
+        return new Rectangle(area.x, area.y + used, area.width, area.height - used);
     }
 
     /** Draws the text horizontally centred at the given height, and returns the height below it. */
