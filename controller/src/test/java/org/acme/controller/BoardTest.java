@@ -1,7 +1,10 @@
 package org.acme.controller;
 
+import static org.acme.controller.Board.Placement.BOTTOM_UP;
+import static org.acme.controller.Board.Placement.RANDOM;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,20 +26,20 @@ class BoardTest {
 
     @Test
     void withNoSparsenessEverySlotHasAMole() {
-        Board board = new Board(SLOTS, 0, new Random(1));
+        Board board = new Board(SLOTS, 0, RANDOM, new Random(1));
         assertEquals(SLOTS, board.initial());
         assertTrue(board.empty().isEmpty());
     }
 
     @Test
     void aFullBoardPutsTheReplacementBackInTheSameSlot() {
-        Board board = new Board(SLOTS, 0, new Random(1));
+        Board board = new Board(SLOTS, 0, RANDOM, new Random(1));
         assertEquals(SLOTS.get(5), board.move(SLOTS.get(5)));
     }
 
     @Test
     void sparsenessLeavesThatPercentageOfSlotsEmpty() {
-        Board board = new Board(SLOTS, 25, new Random(1));
+        Board board = new Board(SLOTS, 25, RANDOM, new Random(1));
         assertEquals(9, board.initial().size());
         assertEquals(3, board.empty().size());
         assertPartition(board.initial(), board.empty());
@@ -44,13 +47,13 @@ class BoardTest {
 
     @Test
     void atLeastOneMoleSurvivesTotalSparseness() {
-        Board board = new Board(SLOTS, 100, new Random(1));
+        Board board = new Board(SLOTS, 100, RANDOM, new Random(1));
         assertEquals(1, board.initial().size());
     }
 
     @Test
     void aReplacementMovesToAnEmptySlotAndFreesTheOldOne() {
-        Board board = new Board(SLOTS, 50, new Random(1));
+        Board board = new Board(SLOTS, 50, RANDOM, new Random(1));
         Tile vacated = board.initial().getFirst();
         List<Tile> emptyBefore = board.empty();
 
@@ -64,14 +67,14 @@ class BoardTest {
 
     @Test
     void rejectsSparsenessOutsideAPercentage() {
-        assertThrows(IllegalArgumentException.class, () -> new Board(SLOTS, -1));
-        assertThrows(IllegalArgumentException.class, () -> new Board(SLOTS, 101));
+        assertThrows(IllegalArgumentException.class, () -> new Board(SLOTS, -1, RANDOM));
+        assertThrows(IllegalArgumentException.class, () -> new Board(SLOTS, 101, RANDOM));
     }
 
     @Test
     void concurrentMovesNeverPutTwoMolesInOneSlot() throws Exception {
         List<Tile> slots = new Grid(20, 10, 10, 10, 0, 0, 0).tiles();
-        Board board = new Board(slots, 50);
+        Board board = new Board(slots, 50, RANDOM);
         List<Tile> initial = board.initial();
         CountDownLatch go = new CountDownLatch(1);
         List<Future<Tile>> moles = new ArrayList<>();
@@ -102,5 +105,35 @@ class BoardTest {
         assertEquals(occupied.size(), all.size(), "two moles share a slot");
         all.addAll(empty);
         assertEquals(occupied.size() + empty.size(), all.size(), "a slot is both occupied and empty");
+    }
+
+    @Test
+    void bottomUpStartsWithTheBottomRows() {
+        // 12 slots in 3 rows of 4; 50% sparseness leaves 6 moles: the bottom row, and 2 in the middle row
+        Board board = new Board(SLOTS, 50, BOTTOM_UP, new Random(1));
+        List<Tile> initial = board.initial();
+        assertEquals(6, initial.size());
+        assertEquals(4, initial.stream().filter(tile -> tile.y() == 200).count());
+        assertEquals(2, initial.stream().filter(tile -> tile.y() == 100).count());
+        assertEquals(200, initial.getFirst().y(), "the bottom row appears first");
+    }
+
+    @Test
+    void bottomUpFillsTheLowestGapFirst() {
+        Board board = new Board(SLOTS, 50, BOTTOM_UP, new Random(1));
+        assertEquals(100, board.claim().y());
+        assertEquals(100, board.claim().y());
+        // The middle row is full now, so the top row is next
+        assertEquals(0, board.claim().y());
+        Tile bottom = board.initial().getFirst();
+        board.vacate(bottom);
+        assertEquals(bottom, board.claim(), "a gap in a lower row is filled before the top row");
+    }
+
+    @Test
+    void claimReturnsNullWhenTheBoardIsFull() {
+        Board board = new Board(SLOTS, 0, BOTTOM_UP, new Random(1));
+        assertTrue(board.isFull());
+        assertNull(board.claim());
     }
 }

@@ -35,6 +35,22 @@ Add `--sparseness 30` to leave 30% of the slots empty at the start, chosen at ra
 
 One mole is the target. It shows the Quarkus logo, and clicking it closes it; clicks on the other moles do nothing. The target's replacement becomes the new target, so the target jumps to a random empty slot, and it's always a mole that has only just started. Replacements flash as they appear, with rings rippling out from the centre. The entrance only animates a window that is already showing, so it doesn't slow down the replacement.
 
+### Mole apocalypse
+
+Start the controller with the `apocalypse` profile:
+
+```
+java -Dquarkus.profile=apocalypse -jar controller/target/quarkus-app/quarkus-run.jar launch
+```
+
+(or set `QUARKUS_PROFILE=apocalypse`; for a native controller, put `-Dquarkus.profile=apocalypse` before `launch`). A row of moles appears along the bottom of the screen, and new ones keep coming, filling the lowest gaps first so the moles rise up the screen. Every mole is a target: click them to close them. There's no timer: each new mole is launched as soon as the one before it has painted its window, so the moles come as fast as they can start. When the screen is full, it's game over, with your score; click the GAME OVER screen to finish.
+
+Native moles start so fast that the screen fills in about a second and a half. With `--mode JVM` you get several seconds and a fighting chance.
+
+The profile's settings are in `controller/src/main/resources/application.properties` (`%apocalypse.moles.*`). The controller passes the profile on to each mole, so moles have `%apocalypse` settings too, in `mole/src/main/resources/application.properties`; in mole apocalypse, new moles flash red.
+
+### Entrances
+
 The entrance is configurable. Moles inherit the controller's environment, so set environment variables before starting the controller:
 
 | Variable | Default | Meaning |

@@ -4,17 +4,22 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * The running moles. Whenever one closes, a replacement opens in a random empty slot of the board, until the fleet is
- * stopped.
+ * The running moles, playing a {@link Game}.
  * <p>
- * One mole is the target, the only one the player can hit. When the target closes, its replacement is the new target,
- * so the target jumps to a random empty slot, and is always a freshly started mole.
+ * In whack-a-mole, one mole is the target, the only one the player can hit. Whenever a mole closes, a replacement
+ * opens in a random empty slot; when the target closes, its replacement is the new target, so the target jumps to a
+ * random empty slot, and is always a freshly started mole.
  * <p>
- * Thread-safe: moles close on JDK process-reaper threads, while {@link #stop()} runs on a shutdown hook. Launching and
- * stopping share the fleet's lock, so no mole can be launched after the fleet has stopped and be left running.
+ * In mole apocalypse, every mole is a target and closed moles leave gaps. A {@link Spawner} calls {@link #spawn()} to
+ * add new moles, until the board is full.
+ * <p>
+ * Thread-safe: moles close on JDK process-reaper threads, the spawner has its own thread, and {@link #stop()} runs on a
+ * shutdown hook. Launching and stopping share the fleet's lock, so no mole can be launched after the fleet has stopped
+ * and be left running.
  */
 public class Fleet {
 
@@ -23,67 +28,113 @@ public class Fleet {
 
     private final Board board;
     private final MoleLauncher launcher;
-    private final Set<Process> moles = new HashSet<>();
+    private final Game game;
+    private final Set<Process> processes = new HashSet<>();
+    private int moles;
+    private int whacked;
     private boolean stopped;
 
-    public Fleet(Board board, MoleLauncher launcher) {
+    public Fleet(Board board, MoleLauncher launcher, Game game) {
         this.board = board;
         this.launcher = launcher;
+        this.game = game;
     }
 
-    /** Launches a mole in every slot the board starts with, one of them the target, and returns how many are running. */
+    /** Launches a mole in every slot the board starts with, and returns how many are running. */
     public synchronized int start() {
         List<Tile> initial = board.initial();
         Tile target = initial.get(ThreadLocalRandom.current().nextInt(initial.size()));
-        initial.forEach(tile -> launch(tile, tile.equals(target), false));
-        return moles.size();
+        initial.forEach(tile -> launch(tile, game.everyMoleIsATarget() || tile.equals(target), false));
+        return moles;
+    }
+
+    /**
+     * Adds a mole in an empty slot. Returns a future that completes once the mole has painted its window, or null if
+     * the board is full.
+     */
+    public synchronized CompletableFuture<Void> spawn() {
+        if (stopped) {
+            return CompletableFuture.failedFuture(new IllegalStateException("the game has stopped"));
+        }
+        Tile tile = board.claim();
+        return tile == null ? null : launch(tile, game.everyMoleIsATarget(), true);
+    }
+
+    /** How many moles the player has closed. */
+    public synchronized int whacked() {
+        return whacked;
+    }
+
+    /** Shows the game-over screen; once the player closes it, the fleet stops. */
+    public synchronized void gameOver(Tile screen, String score) {
+        if (stopped) {
+            return;
+        }
+        try {
+            Process banner = launcher.launchGameOver(screen, score);
+            processes.add(banner);
+            banner.onExit().thenRun(this::stop);
+        } catch (Exception e) {
+            System.err.println("Could not show the game-over screen: " + e.getMessage());
+            stop();
+        }
     }
 
     /** Closes every mole, and stops replacing them. */
     public synchronized void stop() {
         stopped = true;
-        moles.forEach(Process::destroy);
+        processes.forEach(Process::destroy);
         notifyAll();
     }
 
     /** Waits until the fleet is stopped, or until no moles are left because none could be relaunched. */
     public synchronized void await() throws InterruptedException {
-        while (!stopped && !moles.isEmpty()) {
+        while (!stopped && !(moles == 0 && game.replacesClosedMoles())) {
             wait();
         }
     }
 
-    private synchronized void launch(Tile tile, boolean target, boolean replacement) {
+    /** Returns a future that completes once the mole has painted its window. */
+    private synchronized CompletableFuture<Void> launch(Tile tile, boolean target, boolean replacement) {
         if (stopped) {
-            return;
+            return CompletableFuture.failedFuture(new IllegalStateException("the game has stopped"));
         }
         long launchedAt = System.nanoTime();
-        Process mole;
+        MoleLauncher.Launched launched;
         try {
-            mole = launcher.launch(tile, target, replacement);
+            launched = launcher.launch(tile, target, replacement);
         } catch (Exception e) {
             System.err.println("Could not launch mole " + tile.id() + ": " + e.getMessage());
             board.vacate(tile);
-            return;
+            return CompletableFuture.failedFuture(e);
         }
-        moles.add(mole);
+        Process mole = launched.process();
+        processes.add(mole);
+        moles++;
         mole.onExit().thenAccept(exited -> closed(tile, target, exited, Duration.ofNanos(System.nanoTime() - launchedAt)));
+        return launched.ready();
     }
 
     private void closed(Tile tile, boolean target, Process mole, Duration lifetime) {
         synchronized (this) {
-            moles.remove(mole);
+            processes.remove(mole);
+            moles--;
             if (stopped) {
                 return;
             }
             if (mole.exitValue() != 0 && lifetime.compareTo(CRASH_WINDOW) < 0) {
                 System.err.printf("Mole %d exited with code %d after %d ms, so its slot stays empty%n", tile.id(),
                         mole.exitValue(), lifetime.toMillis());
-                if (target) {
+                if (target && !game.everyMoleIsATarget()) {
                     System.err.println("That was the target, so there is no target now");
                 }
                 board.vacate(tile);
                 notifyAll();
+                return;
+            }
+            whacked++;
+            if (!game.replacesClosedMoles()) {
+                board.vacate(tile);
                 return;
             }
         }
