@@ -12,7 +12,7 @@
     </modules>
 
     <properties>
-        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -21,7 +21,7 @@
         <quarkus.platform.version>4.0.0.CR1</quarkus.platform.version>
         <quarkus-desktop.version>0.2.1</quarkus-desktop.version>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.5.6</surefire-plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
